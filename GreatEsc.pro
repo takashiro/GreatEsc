@@ -1,5 +1,6 @@
 TEMPLATE = app
 CONFIG += c++11 console_only
+QT += network
 
 console_only{
     DEFINES += GESC_CONSOLE
