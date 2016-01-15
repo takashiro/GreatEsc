@@ -8,6 +8,8 @@
 class Server;
 class QTcpSocket;
 
+#include "config.h"
+
 class Forwarder : public QObject
 {
     friend struct ForwarderInit;
@@ -26,7 +28,7 @@ protected:
     QByteArray readLine();
     QByteArray readAll();
 
-    static bool isBlocked(const QString &domain);
+    bool isBlocked(const QString &domain);
     static void filterRequest(QByteArray &data, bool forward);
 
     void forwardRequest();
@@ -38,6 +40,7 @@ protected:
     QTcpSocket *m_tunnel;
     bool m_enableFilter;
     bool m_loggedIn;
+    const Config &m_config;
 
     typedef void (Forwarder::*CommandHandler)(const QByteArray &, const QByteArray &, const QByteArray &);
     void directRequest(const QByteArray &method, const QByteArray &rawUrl, const QByteArray &protocol);

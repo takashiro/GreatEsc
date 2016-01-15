@@ -7,7 +7,8 @@ else: QT += qml quick
 
 SOURCES += main.cpp \
     server.cpp \
-    forwarder.cpp
+    forwarder.cpp \
+    config.cpp
 
 # Additional import path used to resolve QML modules in Qt Creator's code model
 QML_IMPORT_PATH =
@@ -17,7 +18,8 @@ include(deployment.pri)
 
 HEADERS += \
     server.h \
-    forwarder.h
+    forwarder.h \
+    config.h
 
 DISTFILES += \
     ui/main.qml

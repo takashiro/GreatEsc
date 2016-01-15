@@ -7,6 +7,7 @@
 #include <QUrl>
 
 QMap<QByteArray, Forwarder::CommandHandler> Forwarder::m_handlers;
+
 namespace {
     struct KeywordPair
     {
@@ -59,6 +60,7 @@ Forwarder::Forwarder(QTcpSocket *client, Server *parent)
     , m_tunnel(nullptr)
     , m_enableFilter(false)
     , m_loggedIn(false)
+    , m_config(parent->config())
 {
     connect(client, &QTcpSocket::readyRead, this, &Forwarder::handleRequest);
     connect(client, &QTcpSocket::disconnected, this, &Forwarder::deleteLater);
@@ -89,6 +91,7 @@ void Forwarder::handleRequest()
         stream >> method >> rawUrl >> protocol;
 
         if (!m_loggedIn && method != "LOGIN") {
+            qWarning("Unauthorised access");
             m_client->disconnectFromHost();
             return;
         }
@@ -128,14 +131,13 @@ QByteArray Forwarder::readAll()
 
 bool Forwarder::isBlocked(const QString &domain)
 {
-#ifdef GESC_OUTSIDER
-    Q_UNUSED(domain)
-#else
+    if (m_config.isOutsider)
+        return false;
+
     foreach (const QString &site, BlockedSiteList) {
         if (domain.endsWith(site))
             return true;
     }
-#endif
     return false;
 }
 
@@ -231,7 +233,16 @@ void Forwarder::setupTunnel(const QByteArray &, const QByteArray &rawUrl, const 
         filterRequest(body, true);
 
         connect(m_tunnel, &QTcpSocket::connected, [=](){
+            if (!m_config.userName.isEmpty() && !m_config.userPassword.isEmpty()) {
+                m_tunnel->write("LOGIN ");
+                m_tunnel->write(m_config.userName);
+                m_tunnel->write(" ");
+                m_tunnel->write(m_config.userPassword);
+                m_tunnel->write("\r\n");
+            }
+
             m_tunnel->write("CHYOUSA true *\r\n");
+
             m_tunnel->write("CONNECT ");
             m_tunnel->write(url);
             m_tunnel->write(" ");
@@ -241,7 +252,8 @@ void Forwarder::setupTunnel(const QByteArray &, const QByteArray &rawUrl, const 
 
             connect(m_client, &QTcpSocket::readyRead, this, &Forwarder::forwardRequest);
         });
-        m_tunnel->connectToHost("p.takashiro.me", 5526);
+
+        m_tunnel->connectToHost(m_config.remoteName, m_config.remotePort);
     } else {
         connect(m_tunnel, &QTcpSocket::connected, [=](){
             connect(m_client, &QTcpSocket::readyRead, this, &Forwarder::forwardRequest);
@@ -258,8 +270,10 @@ void Forwarder::setFilter(const QByteArray &, const QByteArray &status, const QB
 
 void Forwarder::checkLogin(const QByteArray &, const QByteArray &account, const QByteArray &password)
 {
-    if (!m_server->login(account, password))
+    if (m_server->login(account, password)) {
         m_loggedIn = true;
-    else
+    } else {
+        m_client->write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         m_client->disconnectFromHost();
+    }
 }

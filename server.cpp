@@ -3,7 +3,8 @@
 
 #include <QFile>
 #include <QTextStream>
-#include <QSettings>
+#include <QString>
+#include <QStringList>
 
 Server::Server(QObject *parent)
     : QTcpServer(parent)
@@ -34,8 +35,7 @@ void Server::handleNewConnection()
     while (hasPendingConnections()) {
         QTcpSocket *socket = nextPendingConnection();
         Forwarder *forwarder = new Forwarder(socket, this);
-        QSettings config("default.conf", QSettings::IniFormat);
-        if (!config.value("Server/RequireAccount", false).toBool())
+        if (!m_config.requireAccount)
             forwarder->setLoggedIn(true);
     }
 }

@@ -3,6 +3,7 @@
 #else
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlContext>
 #endif
 #include <QSettings>
 
@@ -19,13 +20,16 @@ int main(int argc, char *argv[])
     app.setOrganizationName("Takashiro");
     app.setOrganizationDomain("takashiro.me");
 
+    Server server;
+    Config &config = server.config();
+    server.listen(QHostAddress::Any, config.localPort);
+
 #ifndef GESC_CONSOLE
     QQmlApplicationEngine engine;
+    QQmlContext *context = engine.rootContext();
+    context->setContextProperty("Config", &server.config());
     engine.load(QUrl(QStringLiteral("ui/main.qml")));
 #endif
-
-    Server server;
-    server.listen(QHostAddress::Any, 5526);
 
     return app.exec();
 }
