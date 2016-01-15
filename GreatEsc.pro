@@ -21,3 +21,7 @@ HEADERS += \
 
 DISTFILES += \
     ui/main.qml
+
+DISTFILES += \
+    angou.list \
+    blockedsite.list

@@ -1,17 +1,51 @@
 #include "forwarder.h"
 
+#include <QFile>
 #include <QTextStream>
 #include <QNetworkAccessManager>
 #include <QTcpSocket>
 #include <QUrl>
 
 QMap<QByteArray, Forwarder::CommandHandler> Forwarder::m_handlers;
+namespace {
+    struct KeywordPair
+    {
+        QByteArray from;
+        QByteArray to;
+    };
+    QList<KeywordPair> KeyWordList;
+
+    QStringList BlockedSiteList;
+}
+
 struct ForwarderInit{
     ForwarderInit(){
         Forwarder::m_handlers["GET"] = &Forwarder::directRequest;
         Forwarder::m_handlers["POST"] = &Forwarder::directRequest;
         Forwarder::m_handlers["CONNECT"] = &Forwarder::setupTunnel;
         Forwarder::m_handlers["CHYOUSA"] = &Forwarder::setFilter;
+
+        QFile siteFile("blockedsite.list");
+        if (siteFile.open(QFile::ReadOnly)) {
+            QTextStream stream(&siteFile);
+            while (!stream.atEnd()) {
+                QString site;
+                stream >> site;
+                if (!site.isEmpty())
+                    BlockedSiteList << site;
+            }
+        }
+
+        QFile keywordFile("angou.list");
+        if (keywordFile.open(QFile::ReadOnly)) {
+            QTextStream stream(&keywordFile);
+            while (!stream.atEnd()) {
+                KeywordPair pair;
+                stream >> pair.from >> pair.to;
+                if (!pair.from.isEmpty() && !pair.to.isEmpty())
+                    KeyWordList << pair;
+            }
+        }
     }
 };
 ForwarderInit init;
@@ -89,41 +123,23 @@ bool Forwarder::isBlocked(const QString &domain)
 #ifdef GESC_OUTSIDER
     Q_UNUSED(domain)
 #else
-    if (domain.endsWith("google.com"))
-        return true;
-
-    if (domain.endsWith("twitter.com"))
-        return true;
-
-    if (domain.endsWith("youtube.com"))
-        return true;
-
-    if (domain.endsWith("ytimg.com"))
-        return true;
-
-    if (domain.endsWith("googlevideo.com"))
-        return true;
+    foreach (const QString &site, BlockedSiteList) {
+        if (domain.endsWith(site))
+            return true;
+    }
 #endif
     return false;
 }
 
 void Forwarder::filterRequest(QByteArray &data, bool forward)
 {
-    const char *keywords[][2] = {
-        "google", "gu-guru",
-        "twitter", "tsuitta-",
-        "youtube", "fantudou",
-        "ytimg", "fantudoudetupian",
-        "googlevideo", "gu-gurubidio"
-    };
-
     if (forward) {
-        for (const char **keyword : keywords) {
-            data.replace(keyword[0], keyword[1]);
+        foreach (const KeywordPair &pair, KeyWordList) {
+            data.replace(pair.from, pair.to);
         }
     } else {
-        for (const char **keyword : keywords) {
-            data.replace(keyword[1], keyword[0]);
+        foreach (const KeywordPair &pair, KeyWordList) {
+            data.replace(pair.to, pair.from);
         }
     }
 }
