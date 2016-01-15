@@ -1,13 +1,9 @@
 TEMPLATE = app
 CONFIG += c++11
-QT += network
 
-contains(DEFINES, GESC_CONSOLE){
-    QT -= gui
-}else{
-    QT += qml quick
-    RESOURCES += qml.qrc
-}
+QT += network
+contains(DEFINES, GESC_CONSOLE): QT -= gui
+else: QT += qml quick
 
 SOURCES += main.cpp \
     server.cpp \
@@ -22,3 +18,6 @@ include(deployment.pri)
 HEADERS += \
     server.h \
     forwarder.h
+
+DISTFILES += \
+    ui/main.qml

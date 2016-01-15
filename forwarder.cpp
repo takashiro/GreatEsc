@@ -148,6 +148,15 @@ bool Forwarder::isBlocked(const QString &domain)
 
     if (domain.endsWith("twitter.com"))
         return true;
+
+    if (domain.endsWith("youtube.com"))
+        return true;
+
+    if (domain.endsWith("ytimg.com"))
+        return true;
+
+    if (domain.endsWith("googlevideo.com"))
+        return true;
 #endif
     return false;
 }
@@ -156,7 +165,10 @@ void Forwarder::filterRequest(QByteArray &data, bool forward)
 {
     const char *keywords[][2] = {
         "google", "gu-guru",
-        "twitter", "tsuitta-"
+        "twitter", "tsuitta-",
+        "youtube", "fantudou",
+        "ytimg", "fantudoudetupian",
+        "googlevideo", "gu-gurubidio"
     };
 
     if (forward) {

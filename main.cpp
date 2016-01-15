@@ -4,6 +4,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #endif
+#include <QSettings>
 
 #include "server.h"
 
@@ -13,9 +14,14 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
 #else
     QGuiApplication app(argc, argv);
+#endif
+    app.setApplicationName("GreatEsc");
+    app.setOrganizationName("Takashiro");
+    app.setOrganizationDomain("takashiro.me");
 
+#ifndef GESC_CONSOLE
     QQmlApplicationEngine engine;
-    engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
+    engine.load(QUrl(QStringLiteral("ui/main.qml")));
 #endif
 
     Server server;
