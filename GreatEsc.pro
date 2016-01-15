@@ -1,13 +1,16 @@
 TEMPLATE = app
-
-QT += qml quick
 CONFIG += c++11
+
+console_only{
+    DEFINES += GESC_CONSOLE
+}else{
+    QT += qml quick
+    RESOURCES += qml.qrc
+}
 
 SOURCES += main.cpp \
     server.cpp \
     forwarder.cpp
-
-RESOURCES += qml.qrc
 
 # Additional import path used to resolve QML modules in Qt Creator's code model
 QML_IMPORT_PATH =
