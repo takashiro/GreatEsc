@@ -16,14 +16,9 @@ public:
     void setProxy(QTcpSocket *proxy);
 
 protected:
-    enum State
-    {
-        InitialState,
-        BlockedState,
-        TunnelingState
-    };
-
     void handleRequest();
+
+    static bool isBlocked(const QString &domain);
     static void filterRequest(QByteArray &data, bool forward);
 
     void forwardRequest();

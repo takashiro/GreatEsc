@@ -32,29 +32,28 @@ void Forwarder::setProxy(QTcpSocket *proxy)
 
 void Forwarder::handleRequest()
 {
-    if (m_proxy) {
-        QByteArray data = m_client->readAll();
-        filterRequest(data, true);
-        m_proxy->write(data);
-        return;
-    }
-
+    bool isChyousa = false;
     while (!m_client->atEnd()) {
-        QByteArray data = m_client->readLine();
+        QByteArray line = m_client->readLine();
+        if (isChyousa)
+            filterRequest(line, false);
 
-        QTextStream stream(&data, QIODevice::ReadOnly);
+        QTextStream stream(&line, QIODevice::ReadOnly);
         QByteArray method, rawUrl, protocol;
         stream >> method >> rawUrl >> protocol;
 
         //Read the whole request
-        data.clear();
+        QByteArray body;
         forever {
             QByteArray line = m_client->readLine();
-            data.append(line);
+            body.append(line);
             if (line == "\r\n" || line.isEmpty())
                 break;
         }
+        if (isChyousa)
+            filterRequest(body, false);
 
+        //HTTP GET & POST
         if (method == "GET" || method == "POST") {
             //Resolve host
             QUrl url = QUrl::fromEncoded(rawUrl);
@@ -76,22 +75,19 @@ void Forwarder::handleRequest()
                 socket->write(" ");
                 socket->write(protocol);
                 socket->write("\r\n");
-                socket->write(data);
+                socket->write(body);
             });
             connect(socket, (void (QAbstractSocket::*)(QAbstractSocket::SocketError)) &QTcpSocket::error, [=](QAbstractSocket::SocketError){
                 m_client->disconnectFromHost();
             });
             socket->connectToHost(host, port);
-        } else {
+
+        //TCP Tunnel
+        } else if (method == "CONNECT") {
             disconnect(m_client, &QTcpSocket::readyRead, this, &Forwarder::handleRequest);
 
             m_tunnel = new QTcpSocket(this);
-
             connect(m_tunnel, &QTcpSocket::readyRead, this, &Forwarder::forwardResponse);
-            connect(m_tunnel, &QTcpSocket::connected, [&](){
-                connect(m_client, &QTcpSocket::readyRead, this, &Forwarder::forwardRequest);
-                m_client->write("HTTP/1.1 200 Connection Established\r\n\r\n");
-            });
             connect(m_tunnel, (void (QAbstractSocket::*)(QAbstractSocket::SocketError)) &QTcpSocket::error, [=](QAbstractSocket::SocketError){
                 m_client->disconnectFromHost();
             });
@@ -101,9 +97,46 @@ void Forwarder::handleRequest()
             ushort port = 80;
             if (parts.length() > 1)
                 port = parts.at(1).toUShort();
-            m_tunnel->connectToHost(host, port);
+
+            if (isBlocked(host)) {
+                filterRequest(rawUrl, true);
+                filterRequest(body, true);
+
+                connect(m_tunnel, &QTcpSocket::connected, [=](){
+                    m_tunnel->write("CHYOUSA / GP\r\n");
+                    m_tunnel->write("CONNECT ");
+                    m_tunnel->write(rawUrl);
+                    m_tunnel->write(" ");
+                    m_tunnel->write(protocol);
+                    m_tunnel->write("\r\n");
+                    m_tunnel->write(body);
+
+                    connect(m_client, &QTcpSocket::readyRead, this, &Forwarder::forwardRequest);
+                    m_client->write("HTTP/1.1 200 Connection Established\r\n\r\n");
+                });
+                m_tunnel->connectToHost("p.takashiro.me", 5526);
+            } else {
+                connect(m_tunnel, &QTcpSocket::connected, [&](){
+                    connect(m_client, &QTcpSocket::readyRead, this, &Forwarder::forwardRequest);
+                    m_client->write("HTTP/1.1 200 Connection Established\r\n\r\n");
+                });
+                m_tunnel->connectToHost(host, port);
+            }
+        } else if (method == "CHYOUSA") {
+            isChyousa = true;
         }
     }
+}
+
+bool Forwarder::isBlocked(const QString &domain)
+{
+    if (domain.endsWith("google.com"))
+        return true;
+
+    if (domain.endsWith("twitter.com"))
+        return true;
+
+    return false;
 }
 
 void Forwarder::filterRequest(QByteArray &data, bool forward)
