@@ -1,8 +1,8 @@
 #include "forwarder.h"
+#include "server.h"
 
 #include <QFile>
 #include <QTextStream>
-#include <QNetworkAccessManager>
 #include <QTcpSocket>
 #include <QUrl>
 
@@ -24,6 +24,7 @@ struct ForwarderInit{
         Forwarder::m_handlers["POST"] = &Forwarder::directRequest;
         Forwarder::m_handlers["CONNECT"] = &Forwarder::setupTunnel;
         Forwarder::m_handlers["CHYOUSA"] = &Forwarder::setFilter;
+        Forwarder::m_handlers["LOGIN"] = &Forwarder::checkLogin;
 
         QFile siteFile("blockedsite.list");
         if (siteFile.open(QFile::ReadOnly)) {
@@ -50,12 +51,14 @@ struct ForwarderInit{
 };
 ForwarderInit init;
 
-Forwarder::Forwarder(QTcpSocket *client, QObject *parent)
+Forwarder::Forwarder(QTcpSocket *client, Server *parent)
     : QObject(parent)
+    , m_server(parent)
     , m_client(client)
     , m_proxy(nullptr)
     , m_tunnel(nullptr)
     , m_enableFilter(false)
+    , m_loggedIn(false)
 {
     connect(client, &QTcpSocket::readyRead, this, &Forwarder::handleRequest);
     connect(client, &QTcpSocket::disconnected, this, &Forwarder::deleteLater);
@@ -84,6 +87,11 @@ void Forwarder::handleRequest()
         QTextStream stream(&line, QIODevice::ReadOnly);
         QByteArray method, rawUrl, protocol;
         stream >> method >> rawUrl >> protocol;
+
+        if (!m_loggedIn && method != "LOGIN") {
+            m_client->disconnectFromHost();
+            return;
+        }
 
         CommandHandler handler = m_handlers.value(method);
         if (handler)
@@ -246,4 +254,12 @@ void Forwarder::setupTunnel(const QByteArray &, const QByteArray &rawUrl, const 
 void Forwarder::setFilter(const QByteArray &, const QByteArray &status, const QByteArray &)
 {
     m_enableFilter = (status == "true");
+}
+
+void Forwarder::checkLogin(const QByteArray &, const QByteArray &account, const QByteArray &password)
+{
+    if (!m_server->login(account, password))
+        m_loggedIn = true;
+    else
+        m_client->disconnectFromHost();
 }

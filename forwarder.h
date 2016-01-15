@@ -5,6 +5,7 @@
 #include <QString>
 #include <QMap>
 
+class Server;
 class QTcpSocket;
 
 class Forwarder : public QObject
@@ -12,7 +13,9 @@ class Forwarder : public QObject
     friend struct ForwarderInit;
 
 public:
-    Forwarder(QTcpSocket *client, QObject *parent = nullptr);
+    Forwarder(QTcpSocket *client, Server *parent = nullptr);
+
+    void setLoggedIn(bool logged) { m_loggedIn = logged; }
 
     QTcpSocket *proxy() const { return m_proxy; }
     void setProxy(QTcpSocket *proxy);
@@ -29,15 +32,18 @@ protected:
     void forwardRequest();
     void forwardResponse();
 
+    Server *m_server;
     QTcpSocket *m_client;
     QTcpSocket *m_proxy;
     QTcpSocket *m_tunnel;
     bool m_enableFilter;
+    bool m_loggedIn;
 
     typedef void (Forwarder::*CommandHandler)(const QByteArray &, const QByteArray &, const QByteArray &);
     void directRequest(const QByteArray &method, const QByteArray &rawUrl, const QByteArray &protocol);
     void setupTunnel(const QByteArray &, const QByteArray &rawUrl, const QByteArray &protocol);
     void setFilter(const QByteArray &, const QByteArray &status, const QByteArray &);
+    void checkLogin(const QByteArray &, const QByteArray &account, const QByteArray &password);
     static QMap<QByteArray, CommandHandler> m_handlers;
 };
 
