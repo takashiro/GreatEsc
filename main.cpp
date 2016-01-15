@@ -1,5 +1,7 @@
+#ifdef GESC_CONSOLE
+#include <QCoreApplication>
+#else
 #include <QGuiApplication>
-#ifndef GESC_CONSOLE
 #include <QQmlApplicationEngine>
 #endif
 
@@ -7,9 +9,11 @@
 
 int main(int argc, char *argv[])
 {
+#ifdef GESC_CONSOLE
+    QCoreApplication app(argc, argv);
+#else
     QGuiApplication app(argc, argv);
 
-#ifndef GESC_CONSOLE
     QQmlApplicationEngine engine;
     engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
 #endif

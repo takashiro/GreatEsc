@@ -1,8 +1,9 @@
 TEMPLATE = app
-CONFIG += c++11
+CONFIG += c++11 console_only
 
 console_only{
     DEFINES += GESC_CONSOLE
+    QT -= gui
 }else{
     QT += qml quick
     RESOURCES += qml.qrc
