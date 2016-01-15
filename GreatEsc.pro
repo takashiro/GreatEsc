@@ -1,9 +1,8 @@
 TEMPLATE = app
-CONFIG += c++11 console_only
+CONFIG += c++11
 QT += network
 
-console_only{
-    DEFINES += GESC_CONSOLE
+contains(DEFINES, GESC_CONSOLE){
     QT -= gui
 }else{
     QT += qml quick

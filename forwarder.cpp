@@ -42,17 +42,6 @@ void Forwarder::handleRequest()
         QByteArray method, rawUrl, protocol;
         stream >> method >> rawUrl >> protocol;
 
-        //Read the whole request
-        QByteArray body;
-        forever {
-            QByteArray line = m_client->readLine();
-            body.append(line);
-            if (line == "\r\n" || line.isEmpty())
-                break;
-        }
-        if (isChyousa)
-            filterRequest(body, false);
-
         //HTTP GET & POST
         if (method == "GET" || method == "POST") {
             //Resolve host
@@ -75,6 +64,10 @@ void Forwarder::handleRequest()
                 socket->write(" ");
                 socket->write(protocol);
                 socket->write("\r\n");
+
+                QByteArray body = readBody();
+                if (isChyousa)
+                    filterRequest(body, false);
                 socket->write(body);
             });
             connect(socket, (void (QAbstractSocket::*)(QAbstractSocket::SocketError)) &QTcpSocket::error, [=](QAbstractSocket::SocketError){
@@ -98,9 +91,13 @@ void Forwarder::handleRequest()
             if (parts.length() > 1)
                 port = parts.at(1).toUShort();
 
+            QByteArray body = readBody();
+            if (isChyousa)
+                filterRequest(body, false);
+            filterRequest(body, true);
+
             if (isBlocked(host)) {
                 filterRequest(rawUrl, true);
-                filterRequest(body, true);
 
                 connect(m_tunnel, &QTcpSocket::connected, [=](){
                     m_tunnel->write("CHYOUSA / GP\r\n");
@@ -112,30 +109,46 @@ void Forwarder::handleRequest()
                     m_tunnel->write(body);
 
                     connect(m_client, &QTcpSocket::readyRead, this, &Forwarder::forwardRequest);
-                    m_client->write("HTTP/1.1 200 Connection Established\r\n\r\n");
                 });
                 m_tunnel->connectToHost("p.takashiro.me", 5526);
             } else {
-                connect(m_tunnel, &QTcpSocket::connected, [&](){
+                connect(m_tunnel, &QTcpSocket::connected, [=](){
                     connect(m_client, &QTcpSocket::readyRead, this, &Forwarder::forwardRequest);
                     m_client->write("HTTP/1.1 200 Connection Established\r\n\r\n");
                 });
                 m_tunnel->connectToHost(host, port);
             }
+            return;
         } else if (method == "CHYOUSA") {
             isChyousa = true;
         }
     }
 }
 
+QByteArray Forwarder::readBody()
+{
+    //Read the whole request
+    QByteArray body;
+    forever {
+        QByteArray line = m_client->readLine();
+        body.append(line);
+        if (line == "\r\n" || line.isEmpty())
+            break;
+    }
+    return body;
+}
+
 bool Forwarder::isBlocked(const QString &domain)
 {
+#ifdef GESC_OUTSIDER
+    Q_UNUSED(domain)
+#else
     if (domain.endsWith("google.com"))
         return true;
 
     if (domain.endsWith("twitter.com"))
         return true;
-
+#endif
     return false;
 }
 

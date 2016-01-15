@@ -17,6 +17,7 @@ public:
 
 protected:
     void handleRequest();
+    QByteArray readBody();
 
     static bool isBlocked(const QString &domain);
     static void filterRequest(QByteArray &data, bool forward);
